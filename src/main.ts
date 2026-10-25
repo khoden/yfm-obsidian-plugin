@@ -302,15 +302,43 @@ export default class YfmPreviewPlugin extends Plugin {
                 this.cache.invalidate(file.path);
             }),
         );
+        this.registerEvent(
+            this.app.workspace.on('file-menu', (menu, file, _source, leaf) => {
+                if (
+                    leaf?.view instanceof MarkdownView &&
+                    leaf.view.file === file &&
+                    leaf.view.file?.extension === 'md'
+                ) {
+                    this.addPreviewToggle(menu, { file: leaf.view.file, sourceLeaf: leaf });
+                }
+            }),
+        );
+        this.registerEvent(
+            this.app.workspace.on('editor-menu', (menu, _editor, info) => {
+                if (info.file?.extension !== 'md') return;
+                const sourceLeaf =
+                    info instanceof MarkdownView
+                        ? info.leaf
+                        : this.app.workspace
+                              .getLeavesOfType('markdown')
+                              .find(
+                                  (leaf) =>
+                                      leaf.view instanceof MarkdownView &&
+                                      leaf.view.file === info.file,
+                              );
+                this.addPreviewToggle(menu, { file: info.file, sourceLeaf });
+            }),
+        );
         this.addCommand({
+            // Preserve the command ID so existing user hotkeys continue to work.
             id: 'open-preview',
-            name: 'Open preview',
+            name: 'Toggle preview',
             callback: () => {
-                void this.openPreview();
+                void this.togglePreview();
             },
         });
-        this.addRibbonIcon('file-code', 'Open YFM Preview', () => {
-            void this.openPreview();
+        this.addRibbonIcon('file-code', 'Toggle YFM Preview', () => {
+            void this.togglePreview();
         });
         this.register(() => this.cache.clear());
     }
@@ -324,18 +352,51 @@ export default class YfmPreviewPlugin extends Plugin {
         await this.saveData(this.settings);
     }
 
-    private async openPreview(): Promise<void> {
-        this.currentFile = this.app.workspace.getActiveFile() ?? this.currentFile;
+    private addPreviewToggle(
+        menu: Menu,
+        options: { file: TFile; sourceLeaf?: WorkspaceLeaf },
+    ): void {
+        const isOpen = this.app.workspace.getLeavesOfType(VIEW_TYPE).length > 0;
+        menu.addItem((item) =>
+            item
+                .setTitle(isOpen ? 'Закрыть YFM Preview' : 'Открыть YFM Preview справа')
+                .setIcon(isOpen ? 'x' : 'file-code')
+                .setSection('action')
+                .onClick(() => this.togglePreview(options)),
+        );
+    }
+
+    private async togglePreview({
+        file,
+        sourceLeaf,
+    }: {
+        file?: TFile;
+        sourceLeaf?: WorkspaceLeaf;
+    } = {}): Promise<void> {
+        const workspace = this.app.workspace;
+        const previews = workspace.getLeavesOfType(VIEW_TYPE);
+        if (previews.length > 0) {
+            for (const leaf of previews) leaf.detach();
+            return;
+        }
+        this.currentFile = file ?? workspace.getActiveFile() ?? this.currentFile;
         if (!this.currentFile || this.currentFile.extension !== 'md') {
             new Notice('Сначала откройте Markdown-файл.');
             return;
         }
-        let leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
-        if (!leaf) {
-            leaf = this.app.workspace.getLeaf('split', 'vertical');
-            await leaf.setViewState({ type: VIEW_TYPE, active: true });
-        }
-        await this.app.workspace.revealLeaf(leaf);
+        const source =
+            sourceLeaf ??
+            workspace
+                .getLeavesOfType('markdown')
+                .find(
+                    (leaf) =>
+                        leaf.view instanceof MarkdownView && leaf.view.file === this.currentFile,
+                );
+        // Split the source pane even if its menu was opened while another pane was active.
+        if (source) workspace.setActiveLeaf(source, { focus: false });
+        const leaf = workspace.getLeaf('split', 'vertical');
+        await leaf.setViewState({ type: VIEW_TYPE, active: true });
+        await workspace.revealLeaf(leaf);
     }
 }
 

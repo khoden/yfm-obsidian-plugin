@@ -74,7 +74,9 @@ class Plugin extends Component {
     addCommand(command) {
         this.command = command;
     }
-    addRibbonIcon() {}
+    addRibbonIcon(_icon, title, callback) {
+        this.ribbon = { title, callback };
+    }
     async loadData() {
         return this.savedData;
     }
@@ -317,5 +319,104 @@ test('preview links replace the source editor instead of creating a tab over the
     assert.equal(calls[0].sourcePath, 'one.md');
     assert.equal(calls[0].href, 'two.md');
     assert.match(h.frame.srcdoc, />Second</);
+    await h.view.onClose();
+});
+
+function menuItems() {
+    const items = [];
+    return {
+        items,
+        addItem(callback) {
+            const item = {
+                setTitle(title) {
+                    this.title = title;
+                    return this;
+                },
+                setIcon() {
+                    return this;
+                },
+                setSection() {
+                    return this;
+                },
+                onClick(click) {
+                    this.click = click;
+                    return this;
+                },
+            };
+            callback(item);
+            items.push(item);
+        },
+    };
+}
+
+test('editor and tab menus toggle the preview beside the context source pane', async () => {
+    // Arrange
+    const h = await harness();
+    const source = { view: Object.assign(new MarkdownView(), { file: h.second }) };
+    source.view.leaf = source;
+    let previews = [];
+    let active;
+    h.workspace.getLeavesOfType = (type) => (type === 'markdown' ? [source] : previews);
+    h.workspace.setActiveLeaf = (leaf) => {
+        active = leaf;
+    };
+    const preview = {
+        async setViewState(state) {
+            assert.equal(state.type, 'yfm-preview');
+            previews.push(this);
+        },
+        detach() {
+            previews = previews.filter((leaf) => leaf !== this);
+        },
+    };
+    h.workspace.getLeaf = (mode, direction) => {
+        assert.equal(active, source);
+        assert.equal(mode, 'split');
+        assert.equal(direction, 'vertical');
+        return preview;
+    };
+    h.workspace.revealLeaf = async (leaf) => {
+        assert.equal(leaf, preview);
+    };
+    const editorMenu = menuItems();
+    // Act
+    h.workspace.emit('editor-menu', editorMenu, {}, source.view);
+    await editorMenu.items[0].click();
+    // Assert
+    assert.equal(editorMenu.items[0].title, 'Открыть YFM Preview справа');
+    assert.equal(h.plugin.currentFile, h.second);
+    assert.equal(previews.length, 1);
+    // Act
+    const tabMenu = menuItems();
+    h.workspace.emit('file-menu', tabMenu, h.second, 'more-options', source);
+    await tabMenu.items[0].click();
+    // Assert
+    assert.equal(tabMenu.items[0].title, 'Закрыть YFM Preview');
+    assert.equal(previews.length, 0);
+    await h.view.onClose();
+});
+
+test('command and ribbon close existing previews even without an active Markdown file', async () => {
+    // Arrange
+    const h = await harness();
+    let closed = 0;
+    h.workspace.getLeavesOfType = () => [
+        {
+            detach() {
+                ++closed;
+            },
+        },
+    ];
+    h.workspace.getActiveFile = () => {
+        throw new Error('Closing must not require a source file');
+    };
+    // Act
+    h.plugin.command.callback();
+    h.plugin.ribbon.callback();
+    await flush();
+    // Assert
+    assert.equal(closed, 2);
+    assert.equal(h.plugin.command.id, 'open-preview');
+    assert.equal(h.plugin.command.name, 'Toggle preview');
     await h.view.onClose();
 });
