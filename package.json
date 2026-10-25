@@ -1,6 +1,6 @@
 {
   "name": "yfm-obsidian-plugin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Desktop Obsidian plugin with an isolated Diplodoc YFM preview",
   "main": "main.js",
   "scripts": {

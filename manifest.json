@@ -1,7 +1,7 @@
 {
   "id": "yfm-preview",
   "name": "YFM Preview",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "minAppVersion": "1.8.7",
   "description": "Preview the current saved Markdown file with Diplodoc YFM.",
   "author": "khoden",

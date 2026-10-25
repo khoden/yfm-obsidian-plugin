@@ -409,8 +409,9 @@ for (const dark of [false, true]) {
         ).toHaveCount(0);
         expect(
             await page
-                .locator('p')
+                .locator('p, li')
                 .filter({ hasText: 'Текст с | и ^ без подсветки маркеров' })
+                .last()
                 .innerHTML(),
         ).toContain('Текст с | и ^ без подсветки маркеров ');
         const pieces = page.locator('.yfm-reading-block.yfm-source-table');
