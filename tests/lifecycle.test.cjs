@@ -20,6 +20,9 @@ class Element {
     text = '';
     innerHTML = '';
     srcdoc = '';
+    style = {};
+    win = { getComputedStyle: () => ({ fontFamily: 'Arial', fontSize: '16px' }) };
+    remove() {}
     classList = { contains: () => false };
     createEl(tag, options) {
         const element = new Element();

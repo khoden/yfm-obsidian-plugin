@@ -183,3 +183,47 @@ test('reports and restores preview scroll after a document refresh', async ({ pa
     await expect.poll(() => page.evaluate(() => window.lastScroll?.documentId)).toBe(3);
     expect(await page.evaluate(() => window.lastScroll.y)).toBe(0);
 });
+
+test('uses the native reading-view font family and base font size', async ({ page }) => {
+    // Arrange
+    await page.setContent(
+        '<style>.markdown-preview-view.markdown-rendered {font-family:Georgia, serif;font-size:21px;}.markdown-rendered code {font-family:"Courier New",monospace;}</style><div class="markdown-preview-view markdown-rendered">Native<code>Native code</code></div><iframe sandbox="allow-scripts"></iframe>',
+    );
+    const typography = await page.locator('.markdown-rendered').evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+            fontFamily: style.fontFamily,
+            fontSize: style.fontSize,
+            monospaceFontFamily: getComputedStyle(element.querySelector('code')).fontFamily,
+        };
+    });
+    // Act
+    await page.locator('iframe').evaluate(
+        (frame, document) => {
+            frame.srcdoc = document;
+        },
+        previewDocument(
+            '<p>Preview</p><p><code>Inline code</code></p><pre><code>Block code</code></pre>',
+            false,
+            { typography },
+        ),
+    );
+    // Assert
+    const paragraph = page.frameLocator('iframe').getByText('Preview', { exact: true });
+    await expect(paragraph).toHaveCSS('font-family', typography.fontFamily);
+    await expect(paragraph).toHaveCSS('font-size', typography.fontSize);
+    for (const code of await page.frameLocator('iframe').locator('code').all()) {
+        await expect(code).toHaveCSS('font-family', typography.monospaceFontFamily);
+    }
+    // A subsequent update picks up new appearance settings too.
+    await page.locator('iframe').evaluate(
+        (frame, document) => {
+            frame.srcdoc = document;
+        },
+        previewDocument('<p>Preview</p>', true, {
+            typography: { fontFamily: 'monospace', fontSize: '18px' },
+        }),
+    );
+    await expect(paragraph).toHaveCSS('font-family', 'monospace');
+    await expect(paragraph).toHaveCSS('font-size', '18px');
+});

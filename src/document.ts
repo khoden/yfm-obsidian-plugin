@@ -5,18 +5,32 @@ export interface PreviewDocumentOptions {
     scroll?: { x: number; y: number };
     documentId?: number;
     language?: 'en' | 'ru';
+    typography?: { fontFamily: string; fontSize: string; monospaceFontFamily?: string };
 }
 
 /** Builds a self-contained document; the caller must use a sandboxed iframe. */
 export function previewDocument(
     html: string,
     dark: boolean,
-    { scroll = { x: 0, y: 0 }, documentId = 0, language = 'en' }: PreviewDocumentOptions = {},
+    {
+        scroll = { x: 0, y: 0 },
+        documentId = 0,
+        language = 'en',
+        typography,
+    }: PreviewDocumentOptions = {},
 ): string {
     const theme = dark
         ? `color-scheme:dark;--yfm-color-text:#ddd;--yfm-color-base:#202020;--yfm-color-link:#8ab4f8;--yfm-color-table:#ddd;--yfm-color-table-background:#202020;--yfm-color-table-head-background:#303030;--yfm-color-table-border:#555;--yfm-color-code-background:#303030;--yfm-color-inline-code-background:#303030;`
         : 'color-scheme:light;';
-    const bridge = `const documentId = ${documentId};
+    const fontSettings = JSON.stringify(typography ?? null).replace(/</g, '\\u003c');
+    const bridge = `const typography = ${fontSettings};
+    if (typography) {
+        const content = document.querySelector('.yfm');
+        content.style.setProperty('--yfm-font-family-sans', typography.fontFamily);
+        content.style.setProperty('--yfm-font-size', typography.fontSize);
+        if (typography.monospaceFontFamily) content.style.setProperty('--yfm-font-family-monospace', typography.monospaceFontFamily);
+    }
+    const documentId = ${documentId};
     const scrollPosition = ${JSON.stringify(scroll)};
     let ready = false;
     const reportScroll = () => {

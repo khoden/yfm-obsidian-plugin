@@ -235,6 +235,7 @@ class YfmPreviewView extends ItemView {
                     scroll: this.scroll,
                     documentId: ++this.documentId,
                     language: this.plugin.locale.language,
+                    typography: this.readTypography(),
                 },
             );
             this.setStatus(
@@ -250,6 +251,31 @@ class YfmPreviewView extends ItemView {
             this.setStatus(`${file.path} · ${this.text.error}`);
             this.diagnostics.setText(String(error));
             this.diagnostics.hidden = false;
+        }
+    }
+
+    private readTypography(): {
+        fontFamily: string;
+        fontSize: string;
+        monospaceFontFamily: string;
+    } {
+        const container =
+            this.sourceLeaf?.view instanceof MarkdownView
+                ? (this.sourceLeaf.view.previewMode?.containerEl ?? this.contentEl)
+                : this.contentEl;
+        const probe = container.createDiv({ cls: 'markdown-preview-view markdown-rendered' });
+        const code = probe.createEl('code');
+        probe.style.position = 'absolute';
+        probe.style.visibility = 'hidden';
+        try {
+            const style = probe.win.getComputedStyle(probe);
+            return {
+                fontFamily: style.fontFamily,
+                fontSize: style.fontSize,
+                monospaceFontFamily: code.win.getComputedStyle(code).fontFamily,
+            };
+        } finally {
+            probe.remove();
         }
     }
 
