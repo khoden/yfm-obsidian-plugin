@@ -20,8 +20,8 @@ export function previewDocument(
     }: PreviewDocumentOptions = {},
 ): string {
     const theme = dark
-        ? `color-scheme:dark;--yfm-color-text:#ddd;--yfm-color-base:#202020;--yfm-color-link:#8ab4f8;--yfm-color-table:#ddd;--yfm-color-table-background:#202020;--yfm-color-table-head-background:#303030;--yfm-color-table-border:#555;--yfm-color-code-background:#303030;--yfm-color-inline-code-background:#303030;`
-        : 'color-scheme:light;';
+        ? `color-scheme:dark;--yfm-color-text:#ddd;--yfm-color-base:#202020;--yfm-color-link:#8ab4f8;--yfm-color-table:#ddd;--yfm-color-table-background:#202020;--yfm-color-table-head-background:#303030;--yfm-color-table-border:#555;--yfm-color-code-background:#303030;--yfm-color-inline-code-background:#303030;--yfm-color-hljs-subst:#ddd;--yfm-color-hljs-comment:#aaa;--yfm-color-hljs-deletion:#f0a0a0;--yfm-color-hljs-section:#f0a0a0;--yfm-color-hljs-pseudo:#e6b0b0;--yfm-color-hljs-literal:#b5cea8;--yfm-color-hljs-addition:#b5cea8;--yfm-color-hljs-meta:#9cdcfe;--yfm-color-hljs-meta-string:#9cdcfe;`
+        : 'color-scheme:light;--yfm-color-hljs-comment:#606060;';
     const fontSettings = JSON.stringify(typography ?? null).replace(/</g, '\\u003c');
     const bridge = `const typography = ${fontSettings};
     if (typography) {

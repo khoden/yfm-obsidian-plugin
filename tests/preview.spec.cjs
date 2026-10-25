@@ -227,3 +227,71 @@ test('uses the native reading-view font family and base font size', async ({ pag
     await expect(paragraph).toHaveCSS('font-family', 'monospace');
     await expect(paragraph).toHaveCSS('font-size', '18px');
 });
+
+for (const dark of [false, true]) {
+    test(`code highlighting stays readable in the ${dark ? 'dark' : 'light'} preview`, async ({
+        page,
+    }) => {
+        const source = '```typescript\n// Comment\nconst message: string = "hello";\n```';
+        const { html } = new MarkupCache().render('code.md', source);
+        await page.setContent(
+            '<iframe sandbox="allow-scripts" style="width:600px;height:300px"></iframe>',
+        );
+        await page.locator('iframe').evaluate(
+            (frame, document) => {
+                frame.srcdoc = document;
+            },
+            previewDocument(html, dark, {
+                typography: {
+                    fontFamily: 'serif',
+                    fontSize: '18px',
+                    monospaceFontFamily: 'monospace',
+                },
+            }),
+        );
+        const frame = page.frameLocator('iframe');
+        await expect(frame.locator('.hljs-keyword')).toHaveText('const');
+        await expect(frame.locator('.hljs-keyword')).toHaveCSS('font-weight', '700');
+        await expect(frame.locator('code')).toHaveCSS('font-family', 'monospace');
+        const colors = await frame.locator('code').evaluate((code) => {
+            const style = getComputedStyle(code);
+            // Diplodoc layers translucent code backgrounds over the document surface.
+            const ancestors = [];
+            for (let element = code; element; element = element.parentElement)
+                ancestors.unshift(element);
+            let background = [255, 255, 255];
+            for (const element of ancestors) {
+                const [r, g, b, alpha = 1] = getComputedStyle(element)
+                    .backgroundColor.match(/[\d.]+/g)
+                    .map(Number);
+                background = [r, g, b].map(
+                    (channel, i) => channel * alpha + background[i] * (1 - alpha),
+                );
+            }
+            return {
+                base: style.color,
+                background: `rgb(${background.map(Math.round).join(', ')})`,
+                string: getComputedStyle(code.querySelector('.hljs-string')).color,
+                comment: getComputedStyle(code.querySelector('.hljs-comment')).color,
+            };
+        });
+        expect(colors.string).not.toBe(colors.base);
+        expect(colors.comment).not.toBe(colors.base);
+        const luminance = (color) => {
+            const channels = color
+                .match(/\d+/g)
+                .slice(0, 3)
+                .map(Number)
+                .map((value) => {
+                    const s = value / 255;
+                    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+                });
+            return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+        };
+        for (const foreground of [colors.base, colors.string, colors.comment]) {
+            const a = luminance(foreground);
+            const b = luminance(colors.background);
+            expect((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toBeGreaterThanOrEqual(4.5);
+        }
+    });
+}

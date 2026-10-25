@@ -10,7 +10,10 @@ importers:
     dependencies:
       '@diplodoc/transform':
         specifier: ^4.78.9
-        version: 4.78.9(@types/markdown-it@13.0.9)
+        version: 4.78.9(@types/markdown-it@13.0.9)(highlight.js@11.12.0)
+      highlight.js:
+        specifier: ^11.12.0
+        version: 11.12.0
       markdown-it:
         specifier: 13.0.2
         version: 13.0.2
@@ -649,6 +652,10 @@ packages:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
     engines: {node: '>=8'}
 
+  highlight.js@11.12.0:
+    resolution: {integrity: sha512-nbfWpyRMcMrPMmDwJB+dhX/eiaPKtc2RB+0QZskqJ3WjRA/FDS0e9hZrx8EC/lbEv8gXy98FcDbNa/dspAaJMg==}
+    engines: {node: '>=12.0.0'}
+
   htmlparser2@10.1.0:
     resolution: {integrity: sha512-VTZkM9GWRAtEpveh7MSF6SjjrpNVNNVJfFup7xTY3UpFtm67foy9HDVXneLtFVt4pMz5kZtgNcvCniNFb1hlEQ==}
 
@@ -985,7 +992,7 @@ snapshots:
 
   '@diplodoc/tabs-extension@3.10.7': {}
 
-  '@diplodoc/transform@4.78.9(@types/markdown-it@13.0.9)':
+  '@diplodoc/transform@4.78.9(@types/markdown-it@13.0.9)(highlight.js@11.12.0)':
     dependencies:
       '@diplodoc/cut-extension': 1.1.7(@types/markdown-it@13.0.9)(markdown-it@13.0.2)
       '@diplodoc/directive': 0.4.0(@types/markdown-it@13.0.9)(markdown-it@13.0.2)
@@ -1010,6 +1017,8 @@ snapshots:
       sanitize-html: 2.18.1
       slugify: 1.6.6
       ts-dedent: 2.3.0
+    optionalDependencies:
+      highlight.js: 11.12.0
     transitivePeerDependencies:
       - '@types/markdown-it'
       - react
@@ -1371,6 +1380,8 @@ snapshots:
   github-slugger@1.5.0: {}
 
   has-flag@4.0.0: {}
+
+  highlight.js@11.12.0: {}
 
   htmlparser2@10.1.0:
     dependencies:
