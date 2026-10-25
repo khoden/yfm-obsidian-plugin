@@ -10,6 +10,8 @@ import {
     WorkspaceLeaf,
 } from 'obsidian';
 import type { Menu } from 'obsidian';
+import type { Extension } from '@codemirror/state';
+import { yfmSourceHighlighting } from './highlighting';
 import { MarkupCache } from './cache';
 import { previewDocument } from './document';
 import { localImageSource } from './images';
@@ -19,9 +21,14 @@ const VIEW_TYPE = 'yfm-preview';
 interface YfmPreviewSettings {
     debounceMs: number;
     debugMode: boolean;
+    highlightYfm: boolean;
 }
 
-const DEFAULT_SETTINGS: YfmPreviewSettings = { debounceMs: 500, debugMode: false };
+const DEFAULT_SETTINGS: YfmPreviewSettings = {
+    debounceMs: 500,
+    debugMode: false,
+    highlightYfm: true,
+};
 
 class YfmPreviewView extends ItemView {
     private file: TFile | null = null;
@@ -279,6 +286,7 @@ export default class YfmPreviewPlugin extends Plugin {
     readonly cache = new MarkupCache({ language: this.locale.language });
     settings: YfmPreviewSettings = { ...DEFAULT_SETTINGS };
     currentFile: TFile | null = null;
+    private readonly editorExtensions: Extension[] = [];
 
     async onload(): Promise<void> {
         const saved = await this.loadData();
@@ -289,11 +297,18 @@ export default class YfmPreviewPlugin extends Plugin {
                 saved.debounceMs <= 60_000
                     ? saved.debounceMs
                     : DEFAULT_SETTINGS.debounceMs,
+            highlightYfm:
+                typeof saved?.highlightYfm === 'boolean'
+                    ? saved.highlightYfm
+                    : DEFAULT_SETTINGS.highlightYfm,
             debugMode:
                 typeof saved?.debugMode === 'boolean'
                     ? saved.debugMode
                     : DEFAULT_SETTINGS.debugMode,
         };
+        this.editorExtensions.length = 0;
+        if (this.settings.highlightYfm) this.editorExtensions.push(yfmSourceHighlighting);
+        this.registerEditorExtension(this.editorExtensions);
         this.addSettingTab(new YfmPreviewSettingTab(this));
         this.registerView(VIEW_TYPE, (leaf) => new YfmPreviewView(leaf, this));
         this.registerEvent(
@@ -357,7 +372,13 @@ export default class YfmPreviewPlugin extends Plugin {
 
     /** Persists preferences and updates all open preview panels. */
     async updateSettings(changes: Partial<YfmPreviewSettings>): Promise<void> {
+        const previousHighlighting = this.settings.highlightYfm;
         this.settings = { ...this.settings, ...changes };
+        if (this.settings.highlightYfm !== previousHighlighting) {
+            this.editorExtensions.length = 0;
+            if (this.settings.highlightYfm) this.editorExtensions.push(yfmSourceHighlighting);
+            this.app.workspace.updateOptions();
+        }
         for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
             if (leaf.view instanceof YfmPreviewView) leaf.view.applySettings();
         }
@@ -422,6 +443,16 @@ class YfmPreviewSettingTab extends PluginSettingTab {
     display(): void {
         this.containerEl.empty();
         const strings = this.plugin.locale.strings;
+        new Setting(this.containerEl)
+            .setName(strings.highlightName)
+            .setDesc(strings.highlightDescription)
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(this.plugin.settings.highlightYfm)
+                    .onChange(async (highlightYfm) => {
+                        await this.plugin.updateSettings({ highlightYfm });
+                    }),
+            );
         new Setting(this.containerEl)
             .setName(strings.delayName)
             .setDesc(strings.delayDescription)

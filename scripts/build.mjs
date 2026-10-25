@@ -5,7 +5,13 @@ export const options = {
     platform: 'node',
     target: 'es2022',
     format: 'cjs',
-    external: ['obsidian', 'electron'],
+    external: [
+        'obsidian',
+        'electron',
+        '@codemirror/state',
+        '@codemirror/view',
+        '@codemirror/language',
+    ],
     outfile: 'main.js',
     loader: { '.css': 'text' },
     plugins: [

@@ -25,3 +25,59 @@
     overflow: auto;
     color: var(--text-warning);
 }
+
+.cm-editor .cm-line.yfm-source-block {
+    --yfm-block-accent: var(--color-blue, var(--text-accent));
+    position: relative;
+    z-index: 0;
+}
+.cm-editor .cm-line.yfm-source-block::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -4px;
+    right: -4px;
+    z-index: -1;
+    background-color: color-mix(in srgb, var(--yfm-block-accent) 9%, transparent);
+    border-left: 2px solid var(--yfm-block-accent);
+    pointer-events: none;
+}
+.cm-editor .cm-line.yfm-source-block-start::before {
+    top: -4px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
+.cm-editor .cm-line.yfm-source-block-end::before {
+    bottom: -4px;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+.cm-editor .cm-line.yfm-source-cut {
+    --yfm-block-accent: var(--color-purple, var(--text-accent));
+}
+.cm-editor .cm-line.yfm-source-list {
+    --yfm-block-accent: var(--color-cyan, var(--text-accent));
+}
+.cm-editor .cm-line.yfm-source-note-tip {
+    --yfm-block-accent: var(--color-green, var(--text-accent));
+}
+.cm-editor .cm-line.yfm-source-note-warning {
+    --yfm-block-accent: var(--color-orange, var(--text-accent));
+}
+.cm-editor .cm-line.yfm-source-note-alert {
+    --yfm-block-accent: var(--color-red, var(--text-accent));
+}
+.cm-editor .yfm-source-delimiter {
+    color: var(--text-faint);
+}
+.cm-editor .yfm-source-keyword {
+    color: var(--text-accent);
+    font-weight: 600;
+}
+.cm-editor .yfm-source-parameter {
+    color: var(--color-orange, var(--text-normal));
+}
+.cm-editor .yfm-source-string {
+    color: var(--color-green, var(--text-normal));
+}

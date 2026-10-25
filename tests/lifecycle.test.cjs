@@ -74,6 +74,9 @@ class Plugin extends Component {
     addCommand(command) {
         this.command = command;
     }
+    registerEditorExtension(extension) {
+        this.editorExtensions = extension;
+    }
     addRibbonIcon(_icon, title, callback) {
         this.ribbon = { title, callback };
     }
@@ -455,3 +458,22 @@ for (const [language, command, open, close, error] of [
         await h.view.onClose();
     });
 }
+
+test('highlighting setting reconfigures editors and persists without reloading the plugin', async () => {
+    // Arrange
+    const h = await harness();
+    const extension = h.plugin.editorExtensions;
+    let updates = 0;
+    h.workspace.updateOptions = () => {
+        ++updates;
+    };
+    // Act & Assert
+    assert.equal(extension.length, 1);
+    await h.plugin.updateSettings({ highlightYfm: false });
+    assert.equal(extension.length, 0);
+    assert.equal(h.plugin.savedData.highlightYfm, false);
+    await h.plugin.updateSettings({ highlightYfm: true });
+    assert.equal(extension.length, 1);
+    assert.equal(updates, 2);
+    await h.view.onClose();
+});

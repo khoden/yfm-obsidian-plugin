@@ -1,5 +1,8 @@
 const en = {
     refresh: 'Refresh',
+    highlightName: 'Highlight YFM blocks',
+    highlightDescription:
+        'Color note, cut and list tags, parameters and block backgrounds in Source mode and Live Preview.',
     openFile: 'Open a Markdown file.',
     fileDeleted: 'File deleted. Open another Markdown file.',
     frameTitle: 'YFM HTML preview',
@@ -23,6 +26,9 @@ const en = {
 
 const ru: typeof en = {
     refresh: 'Обновить',
+    highlightName: 'Подсветка YFM-блоков',
+    highlightDescription:
+        'Выделять теги note, cut и list, их параметры и фон блоков в режиме исходника и Live Preview.',
     openFile: 'Откройте Markdown-файл.',
     fileDeleted: 'Файл удалён. Откройте другой Markdown-файл.',
     frameTitle: 'HTML-предпросмотр YFM',
