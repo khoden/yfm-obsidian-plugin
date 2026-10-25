@@ -81,3 +81,13 @@
 .cm-editor .yfm-source-string {
     color: var(--color-green, var(--text-normal));
 }
+
+.cm-editor .yfm-source-meta {
+    color: var(--heading-formatting, var(--text-faint));
+    font-weight: normal;
+}
+.cm-editor .yfm-source-tab-title {
+    font-weight: var(--bold-weight, 700);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}

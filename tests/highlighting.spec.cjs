@@ -30,7 +30,7 @@ test.beforeAll(async () => {
     client = result.outputFiles[0].text;
 });
 
-async function mount(page, dark) {
+async function mount(page, dark, { doc = source } = {}) {
     await page.setViewportSize({ width: 1000, height: 1400 });
     await page.setContent('<div id="editor"></div>');
     await page.addStyleTag({
@@ -42,7 +42,7 @@ async function mount(page, dark) {
     `,
     });
     await page.addScriptTag({ content: client });
-    await page.evaluate((source) => window.mountEditor(source), source);
+    await page.evaluate((source) => window.mountEditor(source), doc);
 }
 
 for (const dark of [false, true]) {
@@ -119,5 +119,55 @@ for (const dark of [false, true]) {
         );
         expect(await textPosition()).toEqual(before);
         expect(errors).toEqual([]);
+    });
+}
+
+for (const dark of [false, true]) {
+    test(`styles heading anchors and tab labels in the ${dark ? 'dark' : 'light'} theme`, async ({
+        page,
+    }) => {
+        // Arrange
+        await mount(page, dark, { doc: readFileSync('test-vault/04-Anchors-and-tabs.md', 'utf8') });
+        await page.addStyleTag({
+            content:
+                ':root {--heading-formatting:rgb(123, 98, 150);} .cm-formatting-header {color:var(--heading-formatting);}',
+        });
+        const lines = page.locator('.cm-line');
+        const anchor = page.locator('.yfm-source-meta').filter({ hasText: '{#header-id}' });
+        const selected = page.locator('.yfm-source-meta').filter({ hasText: '{selected}' });
+        // Assert
+        await expect(anchor).toHaveCount(1);
+        await expect(anchor).toHaveCSS('color', 'rgb(123, 98, 150)');
+        await expect(selected).toHaveCount(2);
+        for (const marker of await selected.all()) {
+            await expect(marker).toHaveCSS('color', 'rgb(123, 98, 150)');
+            await expect(marker).toHaveCSS('font-weight', '400');
+        }
+        const first = page.locator('.yfm-source-tab-title').filter({ hasText: 'Первая вкладка' });
+        await expect(first).toHaveCSS('font-weight', '700');
+        await expect(first).toHaveText('Первая вкладка');
+        await expect(page.locator('.yfm-source-tab-title')).toHaveCount(3);
+        await expect(
+            lines
+                .filter({ hasText: 'Обычная строка содержимого' })
+                .locator('.yfm-source-tab-title'),
+        ).toHaveCount(0);
+        await expect(
+            lines.filter({ hasText: 'Вложенный пункт списка' }).locator('.yfm-source-tab-title'),
+        ).toHaveCount(0);
+        await expect(
+            lines.filter({ hasText: 'Обычный список вне' }).locator('.yfm-source-tab-title'),
+        ).toHaveCount(0);
+        await expect(
+            lines.filter({ hasText: '{#inline-code}' }).locator('.yfm-source-meta'),
+        ).toHaveCount(0);
+        await expect(
+            lines.filter({ hasText: '{#code-example}' }).locator('.yfm-source-meta'),
+        ).toHaveCount(0);
+        await expect(
+            lines
+                .filter({ hasText: 'Пример вкладки' })
+                .locator('.yfm-source-tab-title, .yfm-source-meta'),
+        ).toHaveCount(0);
     });
 }
