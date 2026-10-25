@@ -1,0 +1,4 @@
+ .yfm-preview-panel { display:flex; flex-direction:column; padding:0 !important; overflow:hidden; }
+.yfm-preview-status { padding:10px; border-bottom:1px solid var(--background-modifier-border); font-size:var(--font-ui-small); overflow-wrap:anywhere; }
+.yfm-preview-frame { flex:1; width:100%; min-height:0; border:0; background:var(--background-primary); }
+.yfm-preview-diagnostics { white-space:pre-wrap; margin:0; padding:10px; max-height:160px; overflow:auto; color:var(--text-warning); }

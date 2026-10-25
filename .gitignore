@@ -1,0 +1,7 @@
+node_modules/
+main.js
+.test/
+test-results/
+playwright-report/
+test-vault/.obsidian/plugins/
+test-vault/.obsidian/workspace*.json

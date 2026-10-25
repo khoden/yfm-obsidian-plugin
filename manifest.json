@@ -1,0 +1,9 @@
+{
+  "id": "yfm-preview",
+  "name": "YFM Preview",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Preview the current saved Markdown file with Diplodoc YFM.",
+  "author": "khoden",
+  "isDesktopOnly": true
+}
