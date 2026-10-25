@@ -1,7 +1,7 @@
-const {test} = require('node:test');
+const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const {createHash} = require('node:crypto');
-const {MarkupCache} = require('../.test/cache.cjs');
+const { createHash } = require('node:crypto');
+const { MarkupCache } = require('../.test/cache.cjs');
 
 test('caches identical UTF-8 contents by SHA-256 across paths', () => {
     // Arrange
@@ -45,7 +45,10 @@ test('renders YFM while leaving Liquid untouched and escaping raw HTML', () => {
     // Arrange
     const cache = new MarkupCache();
     // Act
-    const result = cache.render('one.md', '{% note info %}\n\n{{ missing }}\n\n{% endnote %}\n\n<script>alert(1)</script>');
+    const result = cache.render(
+        'one.md',
+        '{% note info %}\n\n{{ missing }}\n\n{% endnote %}\n\n<script>alert(1)</script>',
+    );
     // Assert
     assert.match(result.html, /yfm-note/);
     assert.match(result.html, /\{\{ missing \}\}/);

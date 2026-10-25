@@ -1,9 +1,16 @@
-import type {App} from 'obsidian';
+import type { App } from 'obsidian';
 
 const IMAGE_MIME_TYPES: Record<string, string> = {
-    svg: 'image/svg+xml', png: 'image/png', apng: 'image/apng',
-    jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
-    webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp', ico: 'image/x-icon',
+    svg: 'image/svg+xml',
+    png: 'image/png',
+    apng: 'image/apng',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    avif: 'image/avif',
+    bmp: 'image/bmp',
+    ico: 'image/x-icon',
 };
 
 /** Embeds a vault image so the sandboxed preview does not depend on app:// access. */

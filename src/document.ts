@@ -3,7 +3,9 @@ import yfmRuntime from '@diplodoc/transform/dist/js/yfm.js';
 
 /** Builds a self-contained document; the caller must use a sandboxed iframe. */
 export function previewDocument(html: string, dark: boolean): string {
-    const theme = dark ? `color-scheme:dark;--yfm-color-text:#ddd;--yfm-color-base:#202020;--yfm-color-link:#8ab4f8;--yfm-color-table:#ddd;--yfm-color-table-background:#202020;--yfm-color-table-head-background:#303030;--yfm-color-table-border:#555;--yfm-color-code-background:#303030;--yfm-color-inline-code-background:#303030;` : 'color-scheme:light;';
+    const theme = dark
+        ? `color-scheme:dark;--yfm-color-text:#ddd;--yfm-color-base:#202020;--yfm-color-link:#8ab4f8;--yfm-color-table:#ddd;--yfm-color-table-background:#202020;--yfm-color-table-head-background:#303030;--yfm-color-table-border:#555;--yfm-color-code-background:#303030;--yfm-color-inline-code-background:#303030;`
+        : 'color-scheme:light;';
     const bridge = `document.addEventListener('click', (event) => {
         const link = event.target.closest('a[href]');
         if (!link) return;

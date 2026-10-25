@@ -4,14 +4,16 @@
 
 ## Запуск
 
+Используйте pnpm 11.5.0 (версия закреплена в `packageManager`).
+
 ```sh
-npm ci
-npm run typecheck
-npm test
-npx playwright install chromium
-npm run test:browser
-npm run build
-npm run install:test-vault
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm test
+pnpm exec playwright install chromium
+pnpm run test:browser
+pnpm run build
+pnpm run install:test-vault
 ```
 
 Откройте папку `test-vault` как vault в Obsidian.
@@ -20,7 +22,7 @@ npm run install:test-vault
 Панель откроется рядом с редактором и будет следовать за открываемыми Markdown-файлами.
 Ссылки на другие файлы из предпросмотра открываются в исходной вкладке редактора, заменяя её содержимое и сохраняя панель предпросмотра.
 Если исходная вкладка закрыта, используется другой Markdown-редактор; если редакторов нет, создаётся соседняя панель.
-После пересборки снова выполните `npm run install:test-vault` и перезагрузите плагин в Obsidian.
+После пересборки снова выполните `pnpm run install:test-vault` и перезагрузите плагин в Obsidian.
 
 ## Поведение
 
@@ -49,8 +51,10 @@ Raw HTML в исходном Markdown отключён; отображается
 
 ## Автоматическая проверка
 
-`npm run typecheck` проверяет типы; `npm test` проверяет кеш, debounce 500 мс, переключение файлов, устаревшие чтения и удаление.
-`npm run test:browser` проверяет note, вложенный cut, вкладки, объединённые ячейки, термины и повторный рендеринг в sandboxed iframe Chromium.
+`pnpm run format` форматирует TypeScript, JavaScript, JSON и CSS через Biome; `pnpm run format:check` проверяет форматирование без изменений.
+YFM-примеры в vault, Markdown и генерируемые файлы исключены из форматирования.
+`pnpm run typecheck` проверяет типы; `pnpm test` проверяет кеш, debounce 500 мс, переключение файлов, устаревшие чтения и удаление.
+`pnpm run test:browser` проверяет note, вложенный cut, вкладки, объединённые ячейки, термины и повторный рендеринг в sandboxed iframe Chromium.
 Для использования уже установленного Chromium можно передать путь через `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
 Автоматические проверки не заменяют запуск плагина в Obsidian.
 

@@ -1,4 +1,4 @@
-import {createHash} from 'node:crypto';
+import { createHash } from 'node:crypto';
 import transform = require('@diplodoc/transform');
 
 export interface RenderedMarkup {
@@ -15,7 +15,7 @@ export class MarkupCache {
     constructor(private readonly limit = 32) {}
 
     /** Converts contents, or reuses identical contents already held in memory. */
-    render(path: string, source: string): RenderedMarkup & {cacheHit: boolean} {
+    render(path: string, source: string): RenderedMarkup & { cacheHit: boolean } {
         const hash = createHash('sha256').update(source, 'utf8').digest('hex');
         const previous = this.fileHashes.get(path);
         if (previous && previous !== hash) this.entries.delete(previous);
@@ -24,14 +24,14 @@ export class MarkupCache {
         if (cached) {
             this.entries.delete(hash);
             this.entries.set(hash, cached);
-            return {...cached, cacheHit: true};
+            return { ...cached, cacheHit: true };
         }
         const output = transform(source, {
             disableLiquid: true,
             allowHTML: false,
             needToSanitizeHtml: true,
             // No filesystem callbacks: includes and build-time preprocessing are unsupported.
-            log: {info: () => {}, warn: () => {}, error: () => {}},
+            log: { info: () => {}, warn: () => {}, error: () => {} },
         });
         const entry = {
             hash,
@@ -42,7 +42,7 @@ export class MarkupCache {
         if (this.entries.size > this.limit) {
             this.entries.delete(this.entries.keys().next().value!);
         }
-        return {...entry, cacheHit: false};
+        return { ...entry, cacheHit: false };
     }
 
     /** Removes the previous content entry for a modified, renamed, or deleted file. */
