@@ -1,5 +1,5 @@
 import { syntaxTree } from '@codemirror/language';
-import { analyzeYfm, blockClassNames, type YfmBlock } from './yfm-markup';
+import { analyzeYfm, blockClassNames, backgroundBlock } from './yfm-markup';
 import {
     Decoration,
     type DecorationSet,
@@ -29,12 +29,9 @@ function decorations(view: EditorView): DecorationSet {
     const decoratedLines = new Set<number>();
     for (const visible of view.visibleRanges) {
         for (let line = state.doc.lineAt(visible.from); line.from <= visible.to; ) {
-            const active = lineBlocks
-                .filter((block) => block.from <= line.from && line.from <= block.to)
-                .reduce<YfmBlock | null>(
-                    (deepest, block) => (!deepest || block.depth > deepest.depth ? block : deepest),
-                    null,
-                );
+            const active = backgroundBlock(
+                lineBlocks.filter((block) => block.from <= line.from && line.from <= block.to),
+            );
             if (active && !decoratedLines.has(line.from)) {
                 ranges.push(
                     Decoration.line({

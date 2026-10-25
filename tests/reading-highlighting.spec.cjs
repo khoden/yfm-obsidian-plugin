@@ -373,3 +373,79 @@ test('keeps the painted pseudo-bullet visible for all three tabs, including the 
         expect(visible, `Visible pixels in tab marker ${index + 1}`).toBeGreaterThan(0);
     }
 });
+
+for (const dark of [false, true]) {
+    test(`frames multiline tables without moving native content in the ${dark ? 'dark' : 'light'} Reading view`, async ({
+        page,
+    }) => {
+        // Arrange
+        const source = readFileSync('test-vault/06-Multiline-tables.md', 'utf8');
+        await mount(page, source, dark);
+        await page.addStyleTag({
+            content:
+                ':root {--code-background:rgb(50,60,70);--background-modifier-border:rgb(110,120,130);--heading-formatting:rgb(123,98,150);}',
+        });
+        const before = await page.locator('#reading').textContent();
+        const positions = () =>
+            page.locator('#reading p, #reading li').evaluateAll((elements) =>
+                elements.map((element) => {
+                    const range = document.createRange();
+                    range.selectNodeContents(element);
+                    const rect = range.getBoundingClientRect();
+                    return [rect.x, rect.y];
+                }),
+            );
+        const beforePositions = await positions();
+        // Act
+        await page.evaluate((source) => window.highlightSections(source, true), source);
+        // Assert
+        expect(await page.locator('#reading').textContent()).toBe(before);
+        expect(await positions()).toEqual(beforePositions);
+        await expect(page.locator('.yfm-source-table-marker').filter({ hasText: '^' })).toHaveCount(
+            1,
+        );
+        await expect(
+            page.locator('pre .yfm-source-table-marker,code .yfm-source-table-marker'),
+        ).toHaveCount(0);
+        expect(
+            await page
+                .locator('p')
+                .filter({ hasText: 'Текст с | и ^ без подсветки маркеров' })
+                .innerHTML(),
+        ).toContain('Текст с | и ^ без подсветки маркеров ');
+        const pieces = page.locator('.yfm-reading-block.yfm-source-table');
+        expect(await pieces.count()).toBeGreaterThan(2);
+        for (const piece of await pieces.all()) {
+            const style = await piece.evaluate((element) => {
+                const s = getComputedStyle(element, '::before');
+                return [s.backgroundColor, s.borderRadius, s.borderLeftWidth, s.borderRightWidth];
+            });
+            expect(style).toEqual(['rgb(50, 60, 70)', '0px', '1px', '1px']);
+        }
+        const marker = page.locator('.yfm-source-table-marker').first();
+        await expect(marker).toHaveCSS('color', 'rgb(123, 98, 150)');
+        const first = pieces.first();
+        await expect(first).toHaveClass(/yfm-source-block-start/);
+        const sameTable = page.locator(
+            `[data-yfm-reading-block="${await first.getAttribute('data-yfm-reading-block')}"]`,
+        );
+        for (let i = 1; i < (await sameTable.count()); ++i) {
+            expect(
+                Math.abs(
+                    (await paintedBox(sameTable.nth(i))).top -
+                        (await paintedBox(sameTable.nth(i - 1))).bottom,
+                ),
+            ).toBeLessThan(1);
+        }
+        await page.screenshot({
+            path: path.resolve(`.test/tables-reading-${dark ? 'dark' : 'light'}.png`),
+            fullPage: true,
+        });
+        // Act & Assert: toggling removes all added markup and restores it once.
+        const count = await page.locator('.yfm-source-table-marker').count();
+        await page.evaluate(() => window.readingHighlighter.setEnabled(false));
+        await expect(page.locator('.yfm-source-table-marker,.yfm-source-table')).toHaveCount(0);
+        await page.evaluate(() => window.readingHighlighter.setEnabled(true));
+        await expect(page.locator('.yfm-source-table-marker')).toHaveCount(count);
+    });
+}

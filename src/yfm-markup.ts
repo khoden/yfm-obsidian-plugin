@@ -1,7 +1,7 @@
 import type { Text, Range } from '@codemirror/state';
 import { Decoration } from '@codemirror/view';
 
-type BlockKind = 'note' | 'cut' | 'list';
+type BlockKind = 'note' | 'cut' | 'list' | 'table';
 export interface YfmBlock {
     from: number;
     to: number;
@@ -84,6 +84,56 @@ export function analyzeYfm(doc: Text, excluded: { from: number; to: number }[]) 
                 }).range(from, to),
             );
     };
+    const tables: { block: YfmBlock; cellFrom: number }[] = [];
+    const tableMarker = (from: number, to: number) => {
+        if (!isExcluded(from, to))
+            ranges.push(
+                Decoration.mark({
+                    class: 'cm-formatting cm-formatting-header yfm-source-meta yfm-source-table-marker',
+                }).range(from, to),
+            );
+    };
+    for (const match of source.matchAll(/#\||\|#|\|\||\|/g)) {
+        const from = match.index;
+        const to = from + match[0].length;
+        if (isExcluded(from, to)) continue;
+        let escapes = 0;
+        for (let i = from - 1; i >= 0 && source[i] === '\\'; --i) ++escapes;
+        if (escapes % 2) continue;
+        if (match[0] === '#|') {
+            if (source.slice(doc.lineAt(from).from, from).trim()) continue;
+            const block: YfmBlock = {
+                from,
+                to: source.length,
+                kind: 'table',
+                variant: '',
+                depth: tables.length,
+                bodyFrom: to,
+                bodyTo: source.length,
+            };
+            tables.push({ block, cellFrom: to });
+            tableMarker(from, to);
+            continue;
+        }
+        const table = tables.at(-1);
+        if (!table) continue;
+        // Merge markers are special only when they constitute the entire cell.
+        const cell = source.slice(table.cellFrom, from);
+        const merge = /^\s*([\^>])\s*$/.exec(cell);
+        if (merge) {
+            const position = table.cellFrom + cell.indexOf(merge[1]);
+            tableMarker(position, position + 1);
+        }
+        table.cellFrom = to;
+        tableMarker(from, to);
+        if (match[0] === '|#') {
+            table.block.to = to;
+            table.block.bodyTo = from;
+            blocks.push(tables.pop()!.block);
+            if (tables.length) tables.at(-1)!.cellFrom = to;
+        }
+    }
+    blocks.push(...tables.map(({ block }) => block));
     for (const heading of source.matchAll(/^ {0,3}#{1,6}[ \t]+.*$/gm)) {
         for (const anchor of heading[0].matchAll(/\{#[^{}\s]+\}/g)) {
             const from = heading.index + anchor.index;
@@ -99,7 +149,8 @@ export function analyzeYfm(doc: Text, excluded: { from: number; to: number }[]) 
                 !isExcluded(line.from, line.to) &&
                 !blocks.some(
                     (child) =>
-                        child.depth > block.depth &&
+                        (child.depth > block.depth ||
+                            (child.kind === 'table' && child.from > block.from)) &&
                         child.from <= line.from &&
                         line.from < child.to,
                 )
@@ -141,4 +192,15 @@ export function blockClassNames(
     { start = false, end = false }: { start?: boolean; end?: boolean } = {},
 ): string {
     return `yfm-source-block yfm-source-${block.kind}${block.variant ? ` yfm-source-note-${block.variant}` : ''}${start ? ' yfm-source-block-start' : ''}${end ? ' yfm-source-block-end' : ''}`;
+}
+
+/** Keeps a table's rectangular frame continuous across all cell content. */
+export function backgroundBlock(blocks: YfmBlock[]): YfmBlock | null {
+    const tables = blocks.filter((block) => block.kind === 'table');
+    if (tables.length)
+        return tables.reduce((outer, block) => (block.from < outer.from ? block : outer));
+    return blocks.reduce<YfmBlock | null>(
+        (active, block) => (!active || block.depth > active.depth ? block : active),
+        null,
+    );
 }

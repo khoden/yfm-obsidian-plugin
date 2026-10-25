@@ -1,6 +1,6 @@
 import { Text } from '@codemirror/state';
 import MarkdownIt from 'markdown-it';
-import { analyzeYfm, blockClassNames, type YfmBlock } from './yfm-markup';
+import { analyzeYfm, blockClassNames, backgroundBlock } from './yfm-markup';
 
 interface Section {
     lineStart: number;
@@ -90,6 +90,7 @@ function highlight(element: HTMLElement, section: Section, source: string, parse
     }
     const spans: { node: globalThis.Text; from: number; to: number; className: string }[] = [];
     let cursor = 0;
+    let sourceCursor = from;
     const marks = parsed.ranges
         .filter((mark) => from <= mark.from && mark.to <= to)
         .sort((a, b) => a.from - b.from);
@@ -100,6 +101,20 @@ function highlight(element: HTMLElement, section: Section, source: string, parse
         temporary.innerHTML = markdown.renderInline(raw.replace(/</g, '&lt;'));
         const needle = temporary.textContent ?? '';
         if (!needle) continue;
+        if (mark.value.spec.class.includes('yfm-source-table-marker')) {
+            // Escaped separators remain visible but have no decoration in the source model.
+            // Skip their visible occurrences before searching for the next real marker.
+            temporary.innerHTML = markdown.render(
+                source.slice(sourceCursor, mark.from).replace(/</g, '&lt;'),
+            );
+            for (const code of temporary.querySelectorAll('pre, code')) code.remove();
+            const skipped = (temporary.textContent ?? '').split(needle).length - 1;
+            for (let i = 0; i < skipped; ++i) {
+                const position = text.indexOf(needle, cursor);
+                if (position < 0) break;
+                cursor = position + needle.length;
+            }
+        }
         const start = text.indexOf(needle, cursor);
         if (start < 0) continue;
         const end = start + needle.length;
@@ -113,6 +128,7 @@ function highlight(element: HTMLElement, section: Section, source: string, parse
             });
         }
         cursor = end;
+        sourceCursor = mark.to;
     }
     for (const span of spans.reverse()) {
         const selected = span.node.splitText(span.from);
@@ -140,12 +156,11 @@ function highlight(element: HTMLElement, section: Section, source: string, parse
         const node = elements[found];
         index = found + 1;
         const start = parsed.offset(token.map[0]);
-        const active = parsed.blocks
-            .filter((block) => parsed.doc.lineAt(block.from).from <= start && start < block.to)
-            .reduce<YfmBlock | null>(
-                (deepest, block) => (!deepest || deepest.depth < block.depth ? block : deepest),
-                null,
-            );
+        const active = backgroundBlock(
+            parsed.blocks.filter(
+                (block) => parsed.doc.lineAt(block.from).from <= start && start < block.to,
+            ),
+        );
         if (!active) continue;
         if (
             node.parentElement

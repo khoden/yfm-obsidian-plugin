@@ -171,3 +171,69 @@ for (const dark of [false, true]) {
         ).toHaveCount(0);
     });
 }
+
+for (const dark of [false, true]) {
+    test(`frames multiline tables and colors their markers in the ${dark ? 'dark' : 'light'} editor`, async ({
+        page,
+    }) => {
+        // Arrange
+        const doc = readFileSync('test-vault/06-Multiline-tables.md', 'utf8');
+        await mount(page, dark, { doc });
+        await page.addStyleTag({
+            content:
+                ':root {--code-background:rgb(50, 60, 70);--background-modifier-border:rgb(110, 120, 130);--heading-formatting:rgb(123, 98, 150);}',
+        });
+        const lines = page.locator('.cm-line');
+        const table = lines.filter({ hasText: '|| Раздел | Описание' });
+        // Assert
+        await expect(table).toHaveClass(/yfm-source-table/);
+        for (const marker of await page.locator('.yfm-source-table-marker').all()) {
+            await expect(marker).toHaveCSS('color', 'rgb(123, 98, 150)');
+        }
+        await expect(page.locator('.yfm-source-table-marker').filter({ hasText: '^' })).toHaveCount(
+            1,
+        );
+        await expect(page.locator('.yfm-source-table-marker').filter({ hasText: '>' })).toHaveCount(
+            1,
+        );
+        await expect(lines.filter({ hasText: 'Обычный текст после' })).not.toHaveClass(
+            /yfm-source-table/,
+        );
+        await expect(
+            lines.filter({ hasText: '|| Это | Пример' }).locator('.yfm-source-table-marker'),
+        ).toHaveCount(0);
+        await expect(
+            lines.filter({ hasText: '`#| || |# ^`' }).locator('.yfm-source-table-marker'),
+        ).toHaveCount(0);
+        const escaped = lines.filter({ hasText: 'Текст с \\|' });
+        const escapedMarkers = await escaped.locator('.yfm-source-table-marker').allTextContents();
+        expect(escapedMarkers).toEqual(['||', '|', '||']);
+        const style = await table.evaluate((line) => {
+            const s = getComputedStyle(line, '::before');
+            return [
+                s.backgroundColor,
+                s.borderLeftWidth,
+                s.borderRightWidth,
+                s.borderTopWidth,
+                s.borderRadius,
+            ];
+        });
+        expect(style).toEqual(['rgb(50, 60, 70)', '1px', '1px', '0px', '0px']);
+        const textPosition = () =>
+            table.evaluate((line) => {
+                const range = document.createRange();
+                range.selectNodeContents(line);
+                return range.getBoundingClientRect().x;
+            });
+        const before = await textPosition();
+        // Act: toggling decorations must not move table text.
+        await page.evaluate(() => window.toggleHighlighting(false));
+        expect(await textPosition()).toBe(before);
+        await page.evaluate(() => window.toggleHighlighting(true));
+        await expect(table).toHaveClass(/yfm-source-table/);
+        await page.screenshot({
+            path: path.resolve(`.test/tables-editor-${dark ? 'dark' : 'light'}.png`),
+            fullPage: true,
+        });
+    });
+}
