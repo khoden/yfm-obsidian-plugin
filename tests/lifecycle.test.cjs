@@ -89,7 +89,7 @@ class Plugin extends Component {
 }
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-async function harness(savedData) {
+async function harness(savedData, { language = 'en' } = {}) {
     const timers = new Map();
     let timerId = 0;
     const module = { exports: {} };
@@ -99,6 +99,7 @@ async function harness(savedData) {
         require: (name) =>
             name === 'obsidian'
                 ? {
+                      getLanguage: () => language,
                       ItemView,
                       MarkdownView,
                       Plugin,
@@ -269,7 +270,7 @@ test('debug mode toggles technical status without resetting the preview', async 
     h.workspace.emit('file-open', h.second);
     await flush();
     assert.equal(status.hidden, false);
-    assert.match(status.text, /ошибка/);
+    assert.match(status.text, /error/);
     await h.view.onClose();
 });
 
@@ -383,7 +384,7 @@ test('editor and tab menus toggle the preview beside the context source pane', a
     h.workspace.emit('editor-menu', editorMenu, {}, source.view);
     await editorMenu.items[0].click();
     // Assert
-    assert.equal(editorMenu.items[0].title, 'Открыть YFM Preview справа');
+    assert.equal(editorMenu.items[0].title, 'Open YFM Preview to the right');
     assert.equal(h.plugin.currentFile, h.second);
     assert.equal(previews.length, 1);
     // Act
@@ -391,7 +392,7 @@ test('editor and tab menus toggle the preview beside the context source pane', a
     h.workspace.emit('file-menu', tabMenu, h.second, 'more-options', source);
     await tabMenu.items[0].click();
     // Assert
-    assert.equal(tabMenu.items[0].title, 'Закрыть YFM Preview');
+    assert.equal(tabMenu.items[0].title, 'Close YFM Preview');
     assert.equal(previews.length, 0);
     await h.view.onClose();
 });
@@ -420,3 +421,37 @@ test('command and ribbon close existing previews even without an active Markdown
     assert.equal(h.plugin.command.name, 'Toggle preview');
     await h.view.onClose();
 });
+
+for (const [language, command, open, close, error] of [
+    [
+        'ru',
+        'Переключить предпросмотр',
+        'Открыть YFM Preview справа',
+        'Закрыть YFM Preview',
+        'ошибка',
+    ],
+    ['fr', 'Toggle preview', 'Open YFM Preview to the right', 'Close YFM Preview', 'error'],
+]) {
+    test(`uses Obsidian language ${language} for commands, menus and errors`, async () => {
+        // Arrange
+        const h = await harness(undefined, { language });
+        const source = { view: Object.assign(new MarkdownView(), { file: h.first }) };
+        source.view.leaf = source;
+        let previews = [];
+        h.workspace.getLeavesOfType = (type) => (type === 'markdown' ? [source] : previews);
+        // Act & Assert
+        assert.equal(h.plugin.command.name, command);
+        let menu = menuItems();
+        h.workspace.emit('editor-menu', menu, {}, source.view);
+        assert.equal(menu.items[0].title, open);
+        previews = [{ view: h.view }];
+        menu = menuItems();
+        h.workspace.emit('file-menu', menu, h.first, 'more-options', source);
+        assert.equal(menu.items[0].title, close);
+        h.setRead(() => Promise.reject(new Error('Read failed')));
+        h.workspace.emit('file-open', h.second);
+        await flush();
+        assert.match(h.view.contentEl.children[0].text, new RegExp(error));
+        await h.view.onClose();
+    });
+}

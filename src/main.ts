@@ -1,4 +1,5 @@
 import {
+    getLanguage,
     ItemView,
     MarkdownView,
     Notice,
@@ -12,6 +13,7 @@ import type { Menu } from 'obsidian';
 import { MarkupCache } from './cache';
 import { previewDocument } from './document';
 import { localImageSource } from './images';
+import { createLocalization } from './localization';
 
 const VIEW_TYPE = 'yfm-preview';
 interface YfmPreviewSettings {
@@ -42,6 +44,10 @@ class YfmPreviewView extends ItemView {
         super(leaf);
     }
 
+    private get text() {
+        return this.plugin.locale.strings;
+    }
+
     getViewType(): string {
         return VIEW_TYPE;
     }
@@ -57,7 +63,7 @@ class YfmPreviewView extends ItemView {
         super.onPaneMenu(menu, source);
         menu.addItem((item) =>
             item
-                .setTitle('Обновить')
+                .setTitle(this.text.refresh)
                 .setIcon('refresh-cw')
                 .setSection('action')
                 .onClick(() => {
@@ -72,12 +78,12 @@ class YfmPreviewView extends ItemView {
         this.contentEl.addClass('yfm-preview-panel');
         this.status = this.contentEl.createDiv({
             cls: 'yfm-preview-status',
-            text: 'Откройте Markdown-файл.',
+            text: this.text.openFile,
         });
         this.diagnostics = this.contentEl.createEl('pre', { cls: 'yfm-preview-diagnostics' });
         this.diagnostics.hidden = true;
         this.frame = this.contentEl.createEl('iframe', { cls: 'yfm-preview-frame' });
-        this.frame.title = 'YFM HTML preview';
+        this.frame.title = this.text.frameTitle;
         // Keep document scripts and styles isolated from Obsidian and its Node APIs.
         this.frame.setAttribute('sandbox', 'allow-scripts');
         this.registerEvent(
@@ -104,7 +110,7 @@ class YfmPreviewView extends ItemView {
                 this.renderedFile = null;
                 this.scroll = { x: 0, y: 0 };
                 ++this.documentId;
-                this.setStatus('Файл удалён. Откройте другой Markdown-файл.');
+                this.setStatus(this.text.fileDeleted);
                 this.diagnostics.hidden = true;
             }),
         );
@@ -176,9 +182,12 @@ class YfmPreviewView extends ItemView {
         this.cancelPending();
         if (!this.file) return;
         const revision = this.revision;
-        this.setStatus(`${this.file.path} · ${immediate ? 'рендеринг' : 'ожидание обновления…'}`, {
-            debugOnly: true,
-        });
+        this.setStatus(
+            `${this.file.path} · ${immediate ? this.text.rendering : this.text.waiting}`,
+            {
+                debugOnly: true,
+            },
+        );
         if (immediate) void this.renderFile(revision);
         else
             this.timer = setTimeout(() => {
@@ -205,9 +214,7 @@ class YfmPreviewView extends ItemView {
                     try {
                         image.setAttribute('src', await localImageSource(this.app, src, file.path));
                     } catch (error) {
-                        imageDiagnostics.push(
-                            `Не удалось загрузить изображение ${src}: ${String(error)}`,
-                        );
+                        imageDiagnostics.push(this.text.imageError(src, String(error)));
                     }
                 }),
             );
@@ -217,10 +224,14 @@ class YfmPreviewView extends ItemView {
             this.frame.srcdoc = previewDocument(
                 container.innerHTML,
                 document.body.classList.contains('theme-dark'),
-                { scroll: this.scroll, documentId: ++this.documentId },
+                {
+                    scroll: this.scroll,
+                    documentId: ++this.documentId,
+                    language: this.plugin.locale.language,
+                },
             );
             this.setStatus(
-                `${file.path} · ${result.cacheHit ? 'кеш' : 'конвертация'} · SHA-256 ${result.hash.slice(0, 12)}`,
+                `${file.path} · ${result.cacheHit ? this.text.cache : this.text.conversion} · SHA-256 ${result.hash.slice(0, 12)}`,
                 { debugOnly: true, hash: result.hash },
             );
             const diagnostics = [...result.diagnostics, ...imageDiagnostics];
@@ -229,7 +240,7 @@ class YfmPreviewView extends ItemView {
         } catch (error) {
             if (revision !== this.revision) return;
             this.frame.srcdoc = '';
-            this.setStatus(`${file.path} · ошибка`);
+            this.setStatus(`${file.path} · ${this.text.error}`);
             this.diagnostics.setText(String(error));
             this.diagnostics.hidden = false;
         }
@@ -264,7 +275,8 @@ class YfmPreviewView extends ItemView {
 
 /** Adds a saved-file YFM HTML preview alongside Obsidian's Markdown editor. */
 export default class YfmPreviewPlugin extends Plugin {
-    readonly cache = new MarkupCache();
+    readonly locale = createLocalization(getLanguage());
+    readonly cache = new MarkupCache({ language: this.locale.language });
     settings: YfmPreviewSettings = { ...DEFAULT_SETTINGS };
     currentFile: TFile | null = null;
 
@@ -332,12 +344,12 @@ export default class YfmPreviewPlugin extends Plugin {
         this.addCommand({
             // Preserve the command ID so existing user hotkeys continue to work.
             id: 'open-preview',
-            name: 'Toggle preview',
+            name: this.locale.strings.toggleCommand,
             callback: () => {
                 void this.togglePreview();
             },
         });
-        this.addRibbonIcon('file-code', 'Toggle YFM Preview', () => {
+        this.addRibbonIcon('file-code', this.locale.strings.toggleRibbon, () => {
             void this.togglePreview();
         });
         this.register(() => this.cache.clear());
@@ -359,7 +371,9 @@ export default class YfmPreviewPlugin extends Plugin {
         const isOpen = this.app.workspace.getLeavesOfType(VIEW_TYPE).length > 0;
         menu.addItem((item) =>
             item
-                .setTitle(isOpen ? 'Закрыть YFM Preview' : 'Открыть YFM Preview справа')
+                .setTitle(
+                    isOpen ? this.locale.strings.closePreview : this.locale.strings.openPreview,
+                )
                 .setIcon(isOpen ? 'x' : 'file-code')
                 .setSection('action')
                 .onClick(() => this.togglePreview(options)),
@@ -381,7 +395,7 @@ export default class YfmPreviewPlugin extends Plugin {
         }
         this.currentFile = file ?? workspace.getActiveFile() ?? this.currentFile;
         if (!this.currentFile || this.currentFile.extension !== 'md') {
-            new Notice('Сначала откройте Markdown-файл.');
+            new Notice(this.locale.strings.openFileFirst);
             return;
         }
         const source =
@@ -407,9 +421,10 @@ class YfmPreviewSettingTab extends PluginSettingTab {
 
     display(): void {
         this.containerEl.empty();
+        const strings = this.plugin.locale.strings;
         new Setting(this.containerEl)
-            .setName('Задержка обновления (мс)')
-            .setDesc('Debounce после сохранения файла: от 0 до 60000 мс. По умолчанию — 500 мс.')
+            .setName(strings.delayName)
+            .setDesc(strings.delayDescription)
             .addText((text) => {
                 text.inputEl.type = 'number';
                 text.inputEl.min = '0';
@@ -422,17 +437,13 @@ class YfmPreviewSettingTab extends PluginSettingTab {
                         Number.isInteger(delay) &&
                         delay >= 0 &&
                         delay <= 60_000;
-                    text.inputEl.setCustomValidity(
-                        valid ? '' : 'Введите целое число от 0 до 60000.',
-                    );
+                    text.inputEl.setCustomValidity(valid ? '' : strings.delayValidation);
                     if (valid) await this.plugin.updateSettings({ debounceMs: delay });
                 });
             });
         new Setting(this.containerEl)
-            .setName('Debug-mode')
-            .setDesc(
-                'Показывать в предпросмотре техническую строку: путь файла, состояние кеша и SHA-256.',
-            )
+            .setName(strings.debugName)
+            .setDesc(strings.debugDescription)
             .addToggle((toggle) =>
                 toggle.setValue(this.plugin.settings.debugMode).onChange(async (debugMode) => {
                     await this.plugin.updateSettings({ debugMode });

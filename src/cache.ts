@@ -12,7 +12,13 @@ export class MarkupCache {
     private readonly entries = new Map<string, RenderedMarkup>();
     private readonly fileHashes = new Map<string, string>();
 
-    constructor(private readonly limit = 32) {}
+    private readonly limit: number;
+    private readonly language: 'en' | 'ru';
+
+    constructor({ limit = 32, language = 'en' }: { limit?: number; language?: 'en' | 'ru' } = {}) {
+        this.limit = limit;
+        this.language = language;
+    }
 
     /** Converts contents, or reuses identical contents already held in memory. */
     render(path: string, source: string): RenderedMarkup & { cacheHit: boolean } {
@@ -27,6 +33,7 @@ export class MarkupCache {
             return { ...cached, cacheHit: true };
         }
         const output = transform(source, {
+            lang: this.language,
             disableLiquid: true,
             allowHTML: false,
             needToSanitizeHtml: true,

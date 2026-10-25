@@ -30,7 +30,7 @@ test('invalidates previous markup after modification even when contents are rest
 
 test('bounds the cache and evicts the least recently used entry', () => {
     // Arrange
-    const cache = new MarkupCache(2);
+    const cache = new MarkupCache({ limit: 2 });
     cache.render('one.md', '# One');
     cache.render('two.md', '# Two');
     cache.render('one.md', '# One');
