@@ -55,24 +55,15 @@ test('renders YFM while leaving Liquid untouched and escaping raw HTML', () => {
     assert.doesNotMatch(result.html, /<script>/);
 });
 
-test('highlights fenced code using its language and escapes unsupported code', () => {
+test('preserves fenced code languages and escapes code before native highlighting', () => {
     const cache = new MarkupCache();
-    for (const [language, code, token] of [
-        ['typescript', 'const answer: number = 42;', 'keyword'],
-        ['json', '{"answer": 42}', 'attr'],
-        ['bash', 'echo "hello"', 'string'],
-        ['python', 'def hello():\n    return "hello"', 'keyword'],
-        ['diff', '+added\n-removed', 'addition'],
-    ]) {
-        const { html } = cache.render('code.md', '```' + language + '\n' + code + '\n```');
-        assert.match(html, new RegExp('class="hljs-' + token));
-    }
-    for (const language of ['', 'unknown-language']) {
+    for (const language of ['typescript', 'json', 'bash', 'python', 'diff', 'unknown-language']) {
         const { html } = cache.render(
             'code.md',
             '```' + language + '\n<script>alert("x")</script>\n```',
         );
+        assert.match(html, new RegExp('language-' + language));
         assert.match(html, /&lt;script&gt;/);
-        assert.doesNotMatch(html, /<script>|hljs-keyword/);
+        assert.doesNotMatch(html, /<script>|hljs-/);
     }
 });

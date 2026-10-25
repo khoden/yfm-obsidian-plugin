@@ -229,69 +229,116 @@ test('uses the native reading-view font family and base font size', async ({ pag
 });
 
 for (const dark of [false, true]) {
-    test(`code highlighting stays readable in the ${dark ? 'dark' : 'light'} preview`, async ({
+    test(`uses native Prism tokens and current Reading view styles in the ${dark ? 'dark' : 'light'} theme`, async ({
         page,
     }) => {
-        const source = '```typescript\n// Comment\nconst message: string = "hello";\n```';
-        const { html } = new MarkupCache().render('code.md', source);
-        await page.setContent(
-            '<iframe sandbox="allow-scripts" style="width:600px;height:300px"></iframe>',
-        );
-        await page.locator('iframe').evaluate(
-            (frame, document) => {
-                frame.srcdoc = document;
-            },
-            previewDocument(html, dark, {
-                typography: {
-                    fontFamily: 'serif',
-                    fontSize: '18px',
-                    monospaceFontFamily: 'monospace',
-                },
-            }),
-        );
-        const frame = page.frameLocator('iframe');
-        await expect(frame.locator('.hljs-keyword')).toHaveText('const');
-        await expect(frame.locator('.hljs-keyword')).toHaveCSS('font-weight', '700');
-        await expect(frame.locator('code')).toHaveCSS('font-family', 'monospace');
-        const colors = await frame.locator('code').evaluate((code) => {
-            const style = getComputedStyle(code);
-            // Diplodoc layers translucent code backgrounds over the document surface.
-            const ancestors = [];
-            for (let element = code; element; element = element.parentElement)
-                ancestors.unshift(element);
-            let background = [255, 255, 255];
-            for (const element of ancestors) {
-                const [r, g, b, alpha = 1] = getComputedStyle(element)
-                    .backgroundColor.match(/[\d.]+/g)
-                    .map(Number);
-                background = [r, g, b].map(
-                    (channel, i) => channel * alpha + background[i] * (1 - alpha),
-                );
-            }
-            return {
-                base: style.color,
-                background: `rgb(${background.map(Math.round).join(', ')})`,
-                string: getComputedStyle(code.querySelector('.hljs-string')).color,
-                comment: getComputedStyle(code.querySelector('.hljs-comment')).color,
-            };
+        // Arrange
+        const script = await build({
+            entryPoints: ['src/code-highlighting.ts'],
+            bundle: true,
+            platform: 'browser',
+            format: 'iife',
+            globalName: 'YfmCode',
+            write: false,
         });
-        expect(colors.string).not.toBe(colors.base);
-        expect(colors.comment).not.toBe(colors.base);
-        const luminance = (color) => {
-            const channels = color
-                .match(/\d+/g)
-                .slice(0, 3)
-                .map(Number)
-                .map((value) => {
-                    const s = value / 255;
-                    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-                });
-            return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
-        };
-        for (const foreground of [colors.base, colors.string, colors.comment]) {
-            const a = luminance(foreground);
-            const b = luminance(colors.background);
-            expect((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toBeGreaterThanOrEqual(4.5);
+        await page.setContent(`<style>
+            body {--code-normal:${dark ? '#ddd' : '#222'};--code-background:${dark ? '#303030' : '#eee'};--code-keyword:${dark ? '#ff99cc' : '#800080'};--code-string:${dark ? '#aaddaa' : '#006600'};--code-comment:${dark ? '#aaa' : '#606060'};}
+            .markdown-rendered pre {background:var(--code-background);}
+            .markdown-rendered code {color:var(--code-normal);font-family:monospace;}
+            .token.keyword {color:var(--code-keyword);}
+            .token.string {color:var(--code-string);}
+            .token.comment {color:var(--code-comment);font-style:italic;}
+            .markdown-rendered .language-typescript .token.string {text-decoration:underline;}
+            </style><div id="native" class="markdown-rendered"></div><iframe sandbox="allow-scripts" style="width:600px;height:400px"></iframe>`);
+        await page.evaluate(() => {
+            window.Prism = { manual: true };
+        });
+        await page.addScriptTag({ path: require.resolve('prismjs/prism.js') });
+        for (const language of ['typescript', 'python', 'bash', 'diff']) {
+            await page.addScriptTag({
+                path: require.resolve(`prismjs/components/prism-${language}.js`),
+            });
         }
+        await page.addScriptTag({ content: script.outputFiles[0].text });
+        const source = readFileSync('test-vault/05-Code.md', 'utf8');
+        const cache = new MarkupCache();
+        const { html } = cache.render('code.md', source);
+        const render = async () => {
+            const decorated = await page.evaluate((html) => {
+                const native = document.getElementById('native');
+                native.innerHTML = html;
+                for (const code of native.querySelectorAll('pre > code'))
+                    Prism.highlightElement(code);
+                const content = document.createElement('div');
+                content.innerHTML = html;
+                YfmCode.highlightPreviewCode(content, { prism: Prism, themeContainer: native });
+                return content.innerHTML;
+            }, html);
+            await page.locator('iframe').evaluate(
+                (frame, document) => {
+                    frame.srcdoc = document;
+                },
+                previewDocument(decorated, dark),
+            );
+        };
+        // Act
+        await render();
+        // Assert
+        const compareTokens = async () => {
+            const nativeTokens = await page
+                .locator('#native pre > code .token')
+                .evaluateAll((tokens) =>
+                    tokens.map((token) => {
+                        const style = getComputedStyle(token);
+                        return [
+                            token.textContent,
+                            token.className,
+                            style.color,
+                            style.fontStyle,
+                            style.textDecorationLine,
+                        ];
+                    }),
+                );
+            const previewTokens = await page
+                .frameLocator('iframe')
+                .locator('pre > code .token')
+                .evaluateAll((tokens) =>
+                    tokens.map((token) => {
+                        const style = getComputedStyle(token);
+                        return [
+                            token.textContent,
+                            token.className,
+                            style.color,
+                            style.fontStyle,
+                            style.textDecorationLine,
+                        ];
+                    }),
+                );
+            expect(previewTokens.length).toBeGreaterThan(20);
+            expect(previewTokens).toEqual(nativeTokens);
+        };
+        await compareTokens();
+        const codes = page.frameLocator('iframe').locator('pre > code');
+        await expect(codes).toHaveCount(7);
+        await expect(codes.nth(5)).toHaveText('<script>Этот текст остаётся кодом</script>\n');
+        await expect(codes.nth(6)).toHaveText('<example>Текст без подсветки</example>\n');
+        await expect(codes.nth(6).locator('.token')).toHaveCount(0);
+        await expect(codes.first()).toHaveCSS(
+            'background-color',
+            dark ? 'rgb(48, 48, 48)' : 'rgb(238, 238, 238)',
+        );
+        // Re-rendering cached markup must capture theme overrides afresh.
+        await page.addStyleTag({
+            content:
+                '.markdown-rendered .token.keyword {color:rgb(32, 160, 200);font-style:italic;}',
+        });
+        expect(cache.render('code.md', source).cacheHit).toBe(true);
+        await render();
+        await compareTokens();
+        await expect(page.frameLocator('iframe').locator('.token.keyword').first()).toHaveCSS(
+            'color',
+            'rgb(32, 160, 200)',
+        );
+        await expect(page.locator('#native > .markdown-preview-view')).toHaveCount(0);
     });
 }

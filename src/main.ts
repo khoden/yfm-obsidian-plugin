@@ -1,5 +1,6 @@
 import {
     getLanguage,
+    loadPrism,
     ItemView,
     MarkdownView,
     MarkdownRenderChild,
@@ -16,6 +17,7 @@ import { yfmSourceHighlighting } from './highlighting';
 import { ReadingHighlighter } from './reading-highlighting';
 import { MarkupCache } from './cache';
 import { previewDocument } from './document';
+import { highlightPreviewCode } from './code-highlighting';
 import { localImageSource } from './images';
 import { createLocalization } from './localization';
 
@@ -215,6 +217,11 @@ class YfmPreviewView extends ItemView {
             const result = this.plugin.cache.render(file.path, source);
             const container = document.createElement('div');
             container.innerHTML = result.html;
+            if (container.querySelectorAll('pre > code').length) {
+                const prism = await loadPrism();
+                if (revision !== this.revision) return;
+                highlightPreviewCode(container, { prism, themeContainer: this.readingContainer() });
+            }
             // Resolve resources after the cache lookup: identical source can live in different folders.
             const imageDiagnostics: string[] = [];
             await Promise.all(
@@ -256,15 +263,18 @@ class YfmPreviewView extends ItemView {
         }
     }
 
+    private readingContainer(): HTMLElement {
+        return this.sourceLeaf?.view instanceof MarkdownView
+            ? (this.sourceLeaf.view.previewMode?.containerEl ?? this.contentEl)
+            : this.contentEl;
+    }
+
     private readTypography(): {
         fontFamily: string;
         fontSize: string;
         monospaceFontFamily: string;
     } {
-        const container =
-            this.sourceLeaf?.view instanceof MarkdownView
-                ? (this.sourceLeaf.view.previewMode?.containerEl ?? this.contentEl)
-                : this.contentEl;
+        const container = this.readingContainer();
         const probe = container.createDiv({ cls: 'markdown-preview-view markdown-rendered' });
         const code = probe.createEl('code');
         probe.style.position = 'absolute';
