@@ -31,6 +31,9 @@ class YfmPreviewView extends ItemView {
     private revision = 0;
     private debugStatus = false;
     private hash = '';
+    private renderedFile: TFile | null = null;
+    private scroll = { x: 0, y: 0 };
+    private documentId = 0;
 
     constructor(
         leaf: WorkspaceLeaf,
@@ -98,6 +101,9 @@ class YfmPreviewView extends ItemView {
                 this.cancelPending();
                 this.file = null;
                 this.frame.srcdoc = '';
+                this.renderedFile = null;
+                this.scroll = { x: 0, y: 0 };
+                ++this.documentId;
                 this.setStatus('Файл удалён. Откройте другой Markdown-файл.');
                 this.diagnostics.hidden = true;
             }),
@@ -106,11 +112,16 @@ class YfmPreviewView extends ItemView {
             this.app.workspace.on('css-change', () => this.schedule({ immediate: true })),
         );
         this.registerDomEvent(window, 'message', (event: MessageEvent) => {
-            if (
-                event.source !== this.frame.contentWindow ||
-                event.data?.type !== 'yfm-preview-link'
-            )
+            if (event.source !== this.frame.contentWindow) return;
+            if (event.data?.type === 'yfm-preview-scroll') {
+                const { documentId, x, y } = event.data;
+                // Old srcdoc documents share the same WindowProxy; ignore their delayed messages.
+                if (documentId === this.documentId && Number.isFinite(x) && Number.isFinite(y)) {
+                    this.scroll = { x: Math.max(0, x), y: Math.max(0, y) };
+                }
                 return;
+            }
+            if (event.data?.type !== 'yfm-preview-link') return;
             const href = event.data.href;
             if (typeof href !== 'string') return;
             if (/^https?:\/\//i.test(href)) window.open(href, '_blank', 'noopener,noreferrer');
@@ -201,9 +212,12 @@ class YfmPreviewView extends ItemView {
                 }),
             );
             if (revision !== this.revision) return;
+            if (this.renderedFile !== file) this.scroll = { x: 0, y: 0 };
+            this.renderedFile = file;
             this.frame.srcdoc = previewDocument(
                 container.innerHTML,
                 document.body.classList.contains('theme-dark'),
+                { scroll: this.scroll, documentId: ++this.documentId },
             );
             this.setStatus(
                 `${file.path} · ${result.cacheHit ? 'кеш' : 'конвертация'} · SHA-256 ${result.hash.slice(0, 12)}`,

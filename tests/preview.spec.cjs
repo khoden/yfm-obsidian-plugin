@@ -124,3 +124,62 @@ test('anchor links scroll inside srcdoc without navigating away from the preview
     await expect(frame.locator('#explicit-anchor')).toBeInViewport();
     expect(page.frames()[1].url()).toBe('about:srcdoc');
 });
+
+test('reports and restores preview scroll after a document refresh', async ({ page }) => {
+    // Arrange
+    await page.setContent(
+        '<iframe sandbox="allow-scripts" style="width:600px;height:200px"></iframe>',
+    );
+    await page.evaluate(() => {
+        window.lastScroll = null;
+        window.addEventListener('message', (event) => {
+            if (
+                event.source === document.querySelector('iframe').contentWindow &&
+                event.data?.type === 'yfm-preview-scroll'
+            ) {
+                window.lastScroll = event.data;
+            }
+        });
+    });
+    const html = '<p>Before</p><div style="height:3000px"></div><p>End</p>';
+    await page.locator('iframe').evaluate(
+        (frame, document) => {
+            frame.srcdoc = document;
+        },
+        previewDocument(html, false, { documentId: 1 }),
+    );
+    await expect.poll(() => page.evaluate(() => window.lastScroll?.documentId)).toBe(1);
+    await page
+        .frameLocator('iframe')
+        .locator('main')
+        .evaluate(() => window.scrollTo(0, 900));
+    await expect.poll(() => page.evaluate(() => window.lastScroll?.y)).toBe(900);
+    const scroll = await page.evaluate(() => ({ x: window.lastScroll.x, y: window.lastScroll.y }));
+    // Act
+    await page.locator('iframe').evaluate(
+        (frame, document) => {
+            frame.srcdoc = document;
+        },
+        previewDocument(html.replace('Before', 'After'), false, { documentId: 2, scroll }),
+    );
+    // Assert
+    await expect.poll(() => page.evaluate(() => window.lastScroll?.documentId)).toBe(2);
+    await expect
+        .poll(() =>
+            page
+                .frameLocator('iframe')
+                .locator('main')
+                .evaluate(() => window.scrollY),
+        )
+        .toBe(900);
+    await expect(page.frameLocator('iframe').getByText('After', { exact: true })).toHaveCount(1);
+    // Shortened content must clamp the old position to the new scroll range.
+    await page.locator('iframe').evaluate(
+        (frame, document) => {
+            frame.srcdoc = document;
+        },
+        previewDocument('<p>Short</p>', false, { documentId: 3, scroll }),
+    );
+    await expect.poll(() => page.evaluate(() => window.lastScroll?.documentId)).toBe(3);
+    expect(await page.evaluate(() => window.lastScroll.y)).toBe(0);
+});
