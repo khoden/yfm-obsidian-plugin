@@ -2,6 +2,7 @@ import {
     getLanguage,
     ItemView,
     MarkdownView,
+    MarkdownRenderChild,
     Notice,
     Plugin,
     PluginSettingTab,
@@ -12,6 +13,7 @@ import {
 import type { Menu } from 'obsidian';
 import type { Extension } from '@codemirror/state';
 import { yfmSourceHighlighting } from './highlighting';
+import { ReadingHighlighter } from './reading-highlighting';
 import { MarkupCache } from './cache';
 import { previewDocument } from './document';
 import { localImageSource } from './images';
@@ -313,6 +315,7 @@ export default class YfmPreviewPlugin extends Plugin {
     settings: YfmPreviewSettings = { ...DEFAULT_SETTINGS };
     currentFile: TFile | null = null;
     private readonly editorExtensions: Extension[] = [];
+    private readonly readingHighlighter = new ReadingHighlighter();
 
     async onload(): Promise<void> {
         const saved = await this.loadData();
@@ -335,6 +338,22 @@ export default class YfmPreviewPlugin extends Plugin {
         this.editorExtensions.length = 0;
         if (this.settings.highlightYfm) this.editorExtensions.push(yfmSourceHighlighting);
         this.registerEditorExtension(this.editorExtensions);
+        this.readingHighlighter.setEnabled(this.settings.highlightYfm);
+        this.registerMarkdownPostProcessor(async (element, context) => {
+            if (element.closest('.markdown-source-view')) return;
+            const section = context.getSectionInfo(element);
+            if (!section) return;
+            const file = this.app.vault.getAbstractFileByPath(context.sourcePath);
+            if (!(file instanceof TFile)) return;
+            const source = await this.app.vault.cachedRead(file);
+            if (!this.readingHighlighter.has(element)) {
+                const child = new MarkdownRenderChild(element);
+                child.onunload = () => this.readingHighlighter.forget(element);
+                context.addChild(child);
+            }
+            this.readingHighlighter.process(element, section, source);
+        });
+        this.register(() => this.readingHighlighter.dispose());
         this.addSettingTab(new YfmPreviewSettingTab(this));
         this.registerView(VIEW_TYPE, (leaf) => new YfmPreviewView(leaf, this));
         this.registerEvent(
@@ -404,6 +423,7 @@ export default class YfmPreviewPlugin extends Plugin {
             this.editorExtensions.length = 0;
             if (this.settings.highlightYfm) this.editorExtensions.push(yfmSourceHighlighting);
             this.app.workspace.updateOptions();
+            this.readingHighlighter.setEnabled(this.settings.highlightYfm);
         }
         for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
             if (leaf.view instanceof YfmPreviewView) leaf.view.applySettings();

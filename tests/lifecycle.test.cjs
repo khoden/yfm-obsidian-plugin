@@ -77,6 +77,9 @@ class Plugin extends Component {
     addCommand(command) {
         this.command = command;
     }
+    registerMarkdownPostProcessor(processor) {
+        this.postProcessor = processor;
+    }
     registerEditorExtension(extension) {
         this.editorExtensions = extension;
     }

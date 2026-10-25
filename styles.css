@@ -26,12 +26,14 @@
     color: var(--text-warning);
 }
 
-.cm-editor .cm-line.yfm-source-block {
+.cm-editor .cm-line.yfm-source-block,
+.markdown-rendered .yfm-reading-block.yfm-source-block {
     --yfm-block-accent: var(--color-blue, var(--text-accent));
     position: relative;
     z-index: 0;
 }
-.cm-editor .cm-line.yfm-source-block::before {
+.cm-editor .cm-line.yfm-source-block::before,
+.markdown-rendered .yfm-reading-block.yfm-source-block::before {
     content: "";
     position: absolute;
     top: 0;
@@ -43,51 +45,89 @@
     border-left: 2px solid var(--yfm-block-accent);
     pointer-events: none;
 }
-.cm-editor .cm-line.yfm-source-block-start::before {
+.cm-editor .cm-line.yfm-source-block-start::before,
+.markdown-rendered .yfm-reading-block.yfm-source-block-start::before {
     top: -4px;
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
 }
-.cm-editor .cm-line.yfm-source-block-end::before {
+.cm-editor .cm-line.yfm-source-block-end::before,
+.markdown-rendered .yfm-reading-block.yfm-source-block-end::before {
     bottom: -4px;
     border-bottom-left-radius: 6px;
     border-bottom-right-radius: 6px;
 }
-.cm-editor .cm-line.yfm-source-cut {
+.cm-editor .cm-line.yfm-source-cut,
+.markdown-rendered .yfm-reading-block.yfm-source-cut {
     --yfm-block-accent: var(--color-purple, var(--text-accent));
 }
-.cm-editor .cm-line.yfm-source-list {
+.cm-editor .cm-line.yfm-source-list,
+.markdown-rendered .yfm-reading-block.yfm-source-list {
     --yfm-block-accent: var(--color-cyan, var(--text-accent));
 }
-.cm-editor .cm-line.yfm-source-note-tip {
+.cm-editor .cm-line.yfm-source-note-tip,
+.markdown-rendered .yfm-reading-block.yfm-source-note-tip {
     --yfm-block-accent: var(--color-green, var(--text-accent));
 }
-.cm-editor .cm-line.yfm-source-note-warning {
+.cm-editor .cm-line.yfm-source-note-warning,
+.markdown-rendered .yfm-reading-block.yfm-source-note-warning {
     --yfm-block-accent: var(--color-orange, var(--text-accent));
 }
-.cm-editor .cm-line.yfm-source-note-alert {
+.cm-editor .cm-line.yfm-source-note-alert,
+.markdown-rendered .yfm-reading-block.yfm-source-note-alert {
     --yfm-block-accent: var(--color-red, var(--text-accent));
 }
-.cm-editor .yfm-source-delimiter {
+.cm-editor .yfm-source-delimiter,
+.markdown-rendered .yfm-source-delimiter {
     color: var(--text-faint);
 }
-.cm-editor .yfm-source-keyword {
+.cm-editor .yfm-source-keyword,
+.markdown-rendered .yfm-source-keyword {
     color: var(--text-accent);
     font-weight: 600;
 }
-.cm-editor .yfm-source-parameter {
+.cm-editor .yfm-source-parameter,
+.markdown-rendered .yfm-source-parameter {
     color: var(--color-orange, var(--text-normal));
 }
-.cm-editor .yfm-source-string {
+.cm-editor .yfm-source-string,
+.markdown-rendered .yfm-source-string {
     color: var(--color-green, var(--text-normal));
 }
 
-.cm-editor .yfm-source-meta {
+.cm-editor .yfm-source-meta,
+.markdown-rendered .yfm-source-meta {
     color: var(--heading-formatting, var(--text-faint));
     font-weight: normal;
 }
-.cm-editor .yfm-source-tab-title {
+.cm-editor .yfm-source-tab-title,
+.markdown-rendered .yfm-source-tab-title {
     font-weight: var(--bold-weight, 700);
     text-decoration: underline;
     text-underline-offset: 3px;
+}
+
+.markdown-rendered .yfm-reading-block.yfm-source-block::before {
+    left: var(--yfm-reading-left, -4px);
+    right: var(--yfm-reading-right, -4px);
+    top: var(--yfm-reading-top, 0px);
+    bottom: var(--yfm-reading-bottom, 0px);
+    background-color: color-mix(
+        in srgb,
+        var(--yfm-block-accent) 9%,
+        var(--background-primary, white)
+    );
+}
+.markdown-rendered .yfm-reading-block.yfm-source-block-start::before {
+    top: var(--yfm-reading-top, -4px);
+}
+.markdown-rendered .yfm-reading-block.yfm-source-block-end::before {
+    bottom: var(--yfm-reading-bottom, -4px);
+}
+
+.markdown-rendered
+    .yfm-reading-block
+    > :is(p, ul, ol, li, blockquote, pre, table, h1, h2, h3, h4, h5, h6, .yfm-reading-mark) {
+    position: relative;
+    z-index: 1;
 }
